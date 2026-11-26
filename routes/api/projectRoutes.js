@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { isValidObjectId } = require('mongoose');
-const { Project } = require('../../models');
+const { Project, Task } = require('../../models');
 const { authMiddleware } = require('../../utils/auth');
 
 // Protect all project routes with authentication middleware
@@ -77,6 +77,103 @@ router.get('/:id', async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             message: 'Unable to retrieve project'
+        });
+    }
+});
+
+// Update a project after verifying ownership
+router.put('/:id', async (req, res) => {
+    try {
+        // Validate the project ID
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({
+                message: 'Invalid project ID'
+            });
+        }
+
+        const project = await Project.findById(req.params.id);
+
+        // Verify that the project exists
+        if (!project) {
+            return res.status(404).json({
+                message: 'Project not found'
+            });
+        }
+
+        // Prevent unauthorized project modifications
+        if (project.user.toString() !== req.user._id) {
+            return res.status(403).json({
+                message: 'Access denied'
+            });
+        }
+
+        const { name, description } = req.body || {};
+
+        // Update only permitted fields
+        if (name !== undefined) {
+            project.name = name;
+        }
+
+        if (description !== undefined) {
+            project.description = description;
+        }
+
+        await project.save();
+
+        return res.status(200).json(project);
+    } catch (err) {
+        // Handle schema validation errors
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({
+                message: err.message
+            });
+        }
+
+        return res.status(500).json({
+            message: 'Unable to update project'
+        });
+    }
+});
+
+// Delete a project after verifying ownership
+router.delete('/:id', async (req, res) => {
+    try {
+        // Validate the project ID
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({
+                message: 'Invalid project ID'
+            });
+        }
+
+        const project = await Project.findById(req.params.id);
+
+        // Verify that the project exists
+        if (!project) {
+            return res.status(404).json({
+                message: 'Project not found'
+            });
+        }
+
+        // Prevent unauthorized project deletion
+        if (project.user.toString() !== req.user._id) {
+            return res.status(403).json({
+                message: 'Access denied'
+            });
+        }
+
+        // Delete associated tasks before deleting the project
+        await Task.deleteMany({
+            project: project._id
+        });
+
+        await project.deleteOne();
+
+        return res.status(200).json({
+            message: 'Project deleted successfully'
+        });
+    } catch (err) {
+        return res.status(500).json({
+            message: 'Unable to delete project'
         });
     }
 });
