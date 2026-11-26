@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const db = require('./config/connection');
+const routes = require('./routes');
 
 // Initialize the Express application
 const app = express();
@@ -14,6 +15,9 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.json({ message: 'TaskMaster API is running' });
 });
+
+// Mount the centralized application routes
+app.use(routes);
 
 // Start the server after establishing the database connection
 db.once('open', () => {
